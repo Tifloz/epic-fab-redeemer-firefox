@@ -68,6 +68,16 @@ test('looks up the existing AMO listing and returns null when the add-on is not 
   assert.equal(requested[0], 'https://addons.mozilla.org/api/v5/addons/addon/%7Baddon%40example%7D/');
 });
 
+test('returns null when a requested AMO version is not visible yet', async () => {
+  const client = createAmoClient({
+    apiKey: 'key',
+    apiSecret: 'secret',
+    fetchImpl: async () => ({ ok: false, status: 404 }),
+  });
+
+  assert.equal(await client.getVersion('{addon@example}', '0.1.1'), null);
+});
+
 test('rejects missing credentials before making a request', async () => {
   let called = false;
   const client = createAmoClient({ apiKey: '', apiSecret: 'secret', fetchImpl: async () => { called = true; } });

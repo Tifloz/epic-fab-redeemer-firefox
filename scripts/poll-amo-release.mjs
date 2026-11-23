@@ -27,10 +27,8 @@ export async function pollDraftRelease({
   if (state?.schemaVersion !== 1 || state.tag !== release.tag_name) {
     throw new Error(`Draft ${release.tag_name} has incompatible AMO state.`);
   }
-  if (state.status === 'submitting' && state.uploadUuid === null) {
-    return { status: 'pending', tag: release.tag_name };
-  }
-  if (state.status !== 'submitted' || !isUuid(state.uploadUuid)) {
+  const recoveringSubmission = state.status === 'submitting' && state.uploadUuid === null;
+  if (!recoveringSubmission && (state.status !== 'submitted' || !isUuid(state.uploadUuid))) {
     throw new Error(`Draft ${release.tag_name} has invalid AMO state.`);
   }
 
@@ -38,19 +36,25 @@ export async function pollDraftRelease({
   const addonId = manifest.browser_specific_settings.gecko.id;
   if (state.addonId !== addonId) throw new Error(`Draft ${release.tag_name} has a different Firefox add-on ID.`);
   const version = versionFromTag(release.tag_name, manifest.version);
-  const upload = await amoClient.getUpload(state.uploadUuid);
-  if (upload?.processed === false) return { status: 'pending', tag: release.tag_name };
-  if (upload?.valid === false) throw new Error(`AMO rejected the uploaded version for ${release.tag_name}.`);
-  if (upload?.submitted === false) return { status: 'pending', tag: release.tag_name };
-  if (upload?.processed !== true || upload?.valid !== true) {
-    throw new Error(`AMO upload status is incomplete for ${release.tag_name}.`);
+  if (!recoveringSubmission) {
+    const upload = await amoClient.getUpload(state.uploadUuid);
+    if (upload?.processed === false) return { status: 'pending', tag: release.tag_name };
+    if (upload?.valid === false) throw new Error(`AMO rejected the uploaded version for ${release.tag_name}.`);
+    if (upload?.submitted === false) return { status: 'pending', tag: release.tag_name };
+    if (upload?.processed !== true || upload?.valid !== true) {
+      throw new Error(`AMO upload status is incomplete for ${release.tag_name}.`);
+    }
+    if (upload.channel !== 'listed') throw new Error(`AMO upload is not a listed AMO upload for ${release.tag_name}.`);
+    if (upload.version !== version) throw new Error(`AMO upload version does not match tag ${release.tag_name}.`);
   }
-  if (upload.channel !== 'listed') throw new Error(`AMO upload is not a listed AMO upload for ${release.tag_name}.`);
-  if (upload.version !== version) throw new Error(`AMO upload version does not match tag ${release.tag_name}.`);
 
   const amoVersion = await amoClient.getVersion(addonId, version);
+  if (!amoVersion) return { status: 'pending', tag: release.tag_name };
   const file = amoVersion?.file;
   if (amoVersion?.version !== version) throw new Error(`AMO version does not match tag ${release.tag_name}.`);
+  if (recoveringSubmission && amoVersion.channel !== 'listed') {
+    throw new Error(`AMO version is not a listed submission for ${release.tag_name}.`);
+  }
   if (file?.status === 'unreviewed') return { status: 'pending', tag: release.tag_name };
 
   const sha256 = normalizeSha256(file?.hash);

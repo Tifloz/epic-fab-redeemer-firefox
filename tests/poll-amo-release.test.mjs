@@ -26,16 +26,17 @@ const state = {
   addonId,
 };
 
-function createHarness({ fileStatus = 'public', uploadValid = true, uploadSubmitted = true, uploadVersion = '0.1.0', version = '0.1.0', fileHash = hash, existingXpi = false, releaseDraft = true } = {}) {
+function createHarness({ fileStatus = 'public', uploadValid = true, uploadSubmitted = true, uploadVersion = '0.1.0', version = '0.1.0', versionChannel = 'listed', fileHash = hash, existingXpi = false, releaseDraft = true, stateOverrides = {} } = {}) {
   const events = [];
   const stateAsset = { id: 55, name: 'amo-upload-state.json' };
+  const storedState = { ...state, ...stateOverrides };
   const assets = [stateAsset];
   if (existingXpi) assets.push({ id: 77, name: 'epic-fab-redeemer-v0.1.0.xpi' });
   const githubApi = {
     async listAssets() { return assets; },
     async downloadAsset(asset) {
       events.push(['download-asset', asset.name]);
-      return asset.id === 55 ? Buffer.from(JSON.stringify(state)) : signedBytes;
+      return asset.id === 55 ? Buffer.from(JSON.stringify(storedState)) : signedBytes;
     },
     async uploadAsset(target, name) { events.push(['upload-asset', name]); assets.push({ id: 88, name }); },
     async deleteAsset(id) { events.push(['delete-asset', id]); },
@@ -50,6 +51,7 @@ function createHarness({ fileStatus = 'public', uploadValid = true, uploadSubmit
       events.push(['amo-version', requestedAddonId, requestedVersion]);
       return {
         version,
+        channel: versionChannel,
         file: {
           status: fileStatus,
           url: 'https://addons.mozilla.org/firefox/downloads/file/123/addon.xpi',
@@ -140,13 +142,48 @@ test('accepts the SHA-256 prefix returned by AMO file metadata', async () => {
   assert.deepEqual(await harness.run(), { status: 'published', tag: 'v0.1.0' });
 });
 
-test('ignores already published releases and pending submission markers', async () => {
+test('ignores already published releases', async () => {
   const published = createHarness({ releaseDraft: false });
   assert.deepEqual(await published.run(), { status: 'published', tag: 'v0.1.0' });
   assert.equal(published.events.length, 0);
+});
 
-  const pending = createHarness();
-  pending.githubApi.downloadAsset = async () => Buffer.from(JSON.stringify({ ...state, status: 'submitting', uploadUuid: null }));
+test('recovers an interrupted AMO submission from the version endpoint while review is pending', async () => {
+  const pending = createHarness({
+    fileStatus: 'unreviewed',
+    stateOverrides: { status: 'submitting', uploadUuid: null },
+  });
+
   assert.deepEqual(await pending.run(), { status: 'pending', tag: 'v0.1.0' });
   assert.equal(pending.events.some((event) => event[0] === 'amo-upload'), false);
+  assert.equal(pending.events.some((event) => event[0] === 'amo-version'), true);
+  assert.equal(pending.events.some((event) => ['upload-asset', 'delete-asset', 'update-release'].includes(event[0])), false);
+});
+
+test('publishes an interrupted AMO submission after the version endpoint reports approval', async () => {
+  const recovered = createHarness({
+    stateOverrides: { status: 'submitting', uploadUuid: null },
+  });
+
+  assert.deepEqual(await recovered.run(), { status: 'published', tag: 'v0.1.0' });
+  assert.equal(recovered.events.some((event) => event[0] === 'amo-upload'), false);
+  assert.equal(recovered.events.some((event) => event[0] === 'update-release'), true);
+});
+
+test('does not publish an interrupted submission from a non-listed channel', async () => {
+  const unlisted = createHarness({
+    versionChannel: 'unlisted',
+    stateOverrides: { status: 'submitting', uploadUuid: null },
+  });
+
+  await assert.rejects(unlisted.run(), /not a listed submission/);
+  assert.equal(unlisted.events.some((event) => event[0] === 'update-release'), false);
+});
+
+test('keeps an interrupted submission pending until AMO exposes its version', async () => {
+  const missing = createHarness({ stateOverrides: { status: 'submitting', uploadUuid: null } });
+  missing.amoClient.getVersion = async () => null;
+
+  assert.deepEqual(await missing.run(), { status: 'pending', tag: 'v0.1.0' });
+  assert.equal(missing.events.some((event) => ['delete-asset', 'update-release'].includes(event[0])), false);
 });

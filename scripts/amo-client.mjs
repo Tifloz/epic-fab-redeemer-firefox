@@ -29,7 +29,7 @@ export function createAmoClient({ apiKey, apiSecret, fetchImpl = fetch, now = Da
         throw new Error('AMO version is invalid.');
       }
 
-      return request(`addons/addon/${encodeURIComponent(addonId)}/versions/${encodeURIComponent(version)}/`);
+      return request(`addons/addon/${encodeURIComponent(addonId)}/versions/${encodeURIComponent(version)}/`, { allowNotFound: true });
     },
   };
 

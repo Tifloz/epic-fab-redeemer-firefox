@@ -39,7 +39,7 @@
     twoFactor: /two[- ]factor|2fa|authenticator\s+code|verification\s+code/i,
     signIn: /sign\s+in\s+to\s+(?:continue|claim|complete)|log\s+in\s+to\s+(?:continue|claim)/i,
     eula: /end[- ]user\s+license|license\s+agreement|terms\s+and\s+conditions|agree\s+to\s+the\s+terms/i,
-    checkout: /order\s+summary|place\s+order|complete\s+(?:your\s+)?purchase|confirm\s+(?:your\s+)?order|payment\s+method/i,
+    checkout: /order\s+summary|place\s+order|complete\s+(?:your\s+)?purchase|confirm\s+(?:your\s+)?order|payment\s+method|r[eé]capitulatif\s+(?:de\s+la\s+)?commande|passer\s+la\s+commande|moyen\s+de\s+paiement/i,
     rateLimit: /unable\s+to\s+download\s+any\s+more\s+free\s+games|too\s+many\s+(?:claims|requests)|claim\s+limit\s+(?:reached|exceeded)|try\s+again\s+later/i
   };
 
@@ -192,7 +192,18 @@
     if (CURRENT_NOW_TEXT.some((pattern) => pattern.test(text))) {
       return deadlines.length === 0 || hasFutureDeadline;
     }
-    return false;
+    return hasFrenchFreePromotion(text) && (deadlines.length === 0 || hasFutureDeadline);
+  }
+
+  function hasFrenchFreePromotion(text) {
+    if (!/-100\s*%\s*[\d.,\s$€£]{0,24}(?:USD?|EUR|GBP)?\s*\*?\s*gratuit\b/i.test(text)) return false;
+    const expiry = normalize(text).match(/\bla promotion se termine le\s+(\d{2})\/(\d{2})\/(\d{4})\s+a\s+(\d{2}):(\d{2})\s+utc\b/);
+    if (!expiry) return false;
+    const [day, month, year, hour, minute] = expiry.slice(1).map(Number);
+    const deadline = new Date(Date.UTC(year, month - 1, day, hour, minute));
+    return deadline.getUTCFullYear() === year && deadline.getUTCMonth() === month - 1 &&
+      deadline.getUTCDate() === day && deadline.getUTCHours() === hour &&
+      deadline.getUTCMinutes() === minute && deadline.getTime() > Date.now();
   }
 
   function productTitleMatches(document, item) {
@@ -213,9 +224,7 @@
       const title = normalize(textOf(heading));
       return title && (title === expected || title.includes(expected) || expected.includes(title));
     });
-    if (headings.length !== 1) return null;
-
-    let ancestor = headings[0];
+    let ancestor = headings.length === 1 ? headings[0] : null;
     for (let depth = 0; ancestor && depth < 10; depth += 1, ancestor = ancestor.parentElement) {
       if (!isVisible(ancestor)) continue;
       const headingCount = visibleElements(ancestor, "h1, h2").length;
@@ -225,8 +234,24 @@
         const label = controlLabel(element);
         return CLAIM_LABELS.has(label) || OWNED_LABELS.some((pattern) => pattern.test(label));
       });
-      if (hasRelevantControl) return ancestor;
+      if (hasRelevantControl && (visibleOwnedEvidence(ancestor) || hasCurrentOfferEvidence(ancestor))) return ancestor;
       if (ancestor === main) break;
+    }
+    return headings.some((heading) => normalize(textOf(heading)) === expected) ? baseGameSidebar(main) : null;
+  }
+
+  function baseGameSidebar(main) {
+    const selector = "button, [role='button']";
+    const controls = visibleElements(main, selector).filter((control) => {
+      const label = controlLabel(control);
+      return CLAIM_LABELS.has(label) || OWNED_LABELS.some((pattern) => pattern.test(label));
+    });
+    if (controls.length !== 1) return null;
+    for (let node = controls[0].parentElement; node && node !== main; node = node.parentElement) {
+      const text = textOf(node);
+      if (text.length > 1200 || visibleElements(node, 'h1, h2').length > 0) break;
+      if (isVisible(node) && /\b(?:jeu de base|base game)\b/i.test(text) &&
+          (hasCurrentOfferEvidence(node) || visibleOwnedEvidence(node))) return node;
     }
     return null;
   }

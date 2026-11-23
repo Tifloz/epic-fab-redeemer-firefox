@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.1.4
+
+- Recognize current French Epic giveaways on product pages with a separate base game purchase panel.
+- Pause at the French Epic checkout and check the product for ownership when the user resumes.
+
 ## 0.1.3
 
 - Recognize French limited-time Fab offers and their visible promotional prices.

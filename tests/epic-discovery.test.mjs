@@ -81,14 +81,29 @@ function matchesSelector(element, selector) {
 }
 
 function productCard({ title, slug, text, badge }) {
-  return new FixtureElement('article', {
-    attrs: { 'data-testid': 'offer-card' },
-    text,
-    children: [
-      new FixtureElement('h3', { text: title }),
-      new FixtureElement('a', { text: title, attrs: { href: `/p/${slug}` } }),
-      ...(badge ? [new FixtureElement('button', { text: badge })] : []),
-    ],
+  const deadline = text.match(/jusqu'au\s+(\d{1,2}\s+[a-z.]+)\s+à\s+(\d{1,2}:\d{2})/i);
+  const claimText = deadline
+    ? `Gratuit jusqu'au ${deadline[1]} à ${deadline[2]}`
+    : text;
+  const datetime = deadline ? '2999-12-31T16:00:00.000Z' : undefined;
+  return new FixtureElement('div', {
+    attrs: { 'data-component': 'FreeOfferCard' },
+    children: [new FixtureElement('a', {
+      attrs: {
+        href: `/p/${slug}`,
+        'aria-label': `Jeux gratuits, ${title}, ${text}`,
+      },
+      children: [
+        ...(badge ? [new FixtureElement('span', { text: badge })] : []),
+        new FixtureElement('h6', { text: title }),
+        new FixtureElement('p', { children: [new FixtureElement('span', {
+          children: [
+            new FixtureElement('span', { text: claimText }),
+            ...(datetime ? [new FixtureElement('time', { text: '26 nov.', attrs: { datetime } })] : []),
+          ],
+        })] }),
+      ],
+    })],
   });
 }
 
@@ -103,7 +118,7 @@ function discover(cards) {
   return Array.from(context.__efar.sites.epic.discovery.scan(document, location));
 }
 
-test('discovers the active PC giveaway from its free-until card without an in-card claim button', () => {
+test('discovers Epic FreeOfferCard markup with an active free-until date', () => {
   const results = discover([
     productCard({
       title: 'Mark of the Deep',

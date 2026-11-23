@@ -35,7 +35,7 @@ export async function pollDraftRelease({
   validateManifest(manifest);
   const addonId = manifest.browser_specific_settings.gecko.id;
   if (state.addonId !== addonId) throw new Error(`Draft ${release.tag_name} has a different Firefox add-on ID.`);
-  const version = versionFromTag(release.tag_name, manifest.version);
+  const version = versionFromTag(release.tag_name, release.tag_name.slice(1));
   if (!recoveringSubmission) {
     const upload = await amoClient.getUpload(state.uploadUuid);
     if (upload?.processed === false) return { status: 'pending', tag: release.tag_name };

@@ -8,8 +8,7 @@ const uploadUuid = 'f7de8de4-9c4b-4f1e-9f7e-8e1342c32111';
 const addonId = '{41f50f5e-77ac-47ec-8c28-3d16a00fa80e}';
 const signedBytes = Buffer.from('Mozilla signed extension bytes');
 const hash = createHash('sha256').update(signedBytes).digest('hex');
-const release = { id: 12, tag_name: 'v0.1.0', draft: true };
-const manifest = {
+const manifestTemplate = {
   manifest_version: 3,
   version: '0.1.0',
   browser_specific_settings: {
@@ -26,10 +25,12 @@ const state = {
   addonId,
 };
 
-function createHarness({ fileStatus = 'public', uploadValid = true, uploadSubmitted = true, uploadVersion = '0.1.0', version = '0.1.0', versionChannel = 'listed', fileHash = hash, existingXpi = false, releaseDraft = true, stateOverrides = {} } = {}) {
+function createHarness({ fileStatus = 'public', uploadValid = true, uploadSubmitted = true, uploadVersion = '0.1.0', version = '0.1.0', manifestVersion = '0.1.0', tag = 'v0.1.0', versionChannel = 'listed', fileHash = hash, existingXpi = false, releaseDraft = true, stateOverrides = {} } = {}) {
   const events = [];
+  const release = { id: 12, tag_name: tag, draft: true };
+  const manifest = { ...manifestTemplate, version: manifestVersion };
+  const storedState = { ...state, tag, ...stateOverrides };
   const stateAsset = { id: 55, name: 'amo-upload-state.json' };
-  const storedState = { ...state, ...stateOverrides };
   const assets = [stateAsset];
   if (existingXpi) assets.push({ id: 77, name: 'epic-fab-redeemer-v0.1.0.xpi' });
   const githubApi = {
@@ -186,4 +187,17 @@ test('keeps an interrupted submission pending until AMO exposes its version', as
 
   assert.deepEqual(await missing.run(), { status: 'pending', tag: 'v0.1.0' });
   assert.equal(missing.events.some((event) => ['delete-asset', 'update-release'].includes(event[0])), false);
+});
+
+test('checks an older draft against its own tag after the manifest has advanced', async () => {
+  const older = createHarness({
+    fileStatus: 'unreviewed',
+    manifestVersion: '0.1.2',
+    tag: 'v0.1.1',
+    version: '0.1.1',
+    uploadVersion: '0.1.1',
+  });
+
+  assert.deepEqual(await older.run(), { status: 'pending', tag: 'v0.1.1' });
+  assert.equal(older.events.some((event) => event[0] === 'amo-version' && event[2] === '0.1.1'), true);
 });

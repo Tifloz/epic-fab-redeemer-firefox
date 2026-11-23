@@ -1,1 +1,4 @@
 /dist/
+/node_modules/
+/.amo-upload-uuid
+/.web-extension-id

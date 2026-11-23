@@ -16,9 +16,33 @@ Temporary add-ons are removed when Firefox restarts. Load the manifest again aft
 
 ## Release package
 
-Run `./scripts/package-release.ps1` from PowerShell to create a versioned ZIP in `dist/`. The ZIP contains the extension at its root for AMO submission or as a GitHub Release source asset. It is not a directly installable Firefox add-on until Mozilla signs it. Submit it through the [AMO Developer Hub](https://addons.mozilla.org/developers/), then distribute the signed `.xpi` from AMO or attach that signed file to a GitHub Release.
+Use Node.js 22 or later for local checks and packaging:
+
+```sh
+npm ci
+npm test
+npm run lint
+npm run build
+```
+
+`npm run build` creates `dist/epic-fab-redeemer-v<manifest-version>.zip`. The ZIP contains the extension at its root and is the source package for AMO and the GitHub Release. It is not directly installable until Mozilla signs it.
 
 The manifest includes a stable Gecko add-on ID so Firefox can recognize this extension across versions. Keep that ID unchanged for future updates.
+
+### Automated CI and release flow
+
+The CI workflow runs the tests, `web-ext` lint, and package build for pull requests and pushes to `main`. It uses the committed npm lockfile and grants its validation job read-only repository access.
+
+Pushing a tag matching the exact version in `manifest.json` starts an AMO submission. For example, manifest version `0.1.0` requires tag `v0.1.0`. The workflow validates, tests, lints, and packages before submitting. It creates a **draft** GitHub Release with the source ZIP while Mozilla reviews the AMO submission. An hourly workflow checks approval; you can also run **Publish AMO-approved release** manually from the GitHub Actions tab. Only when AMO reports the matching version as public does the poller download the signed XPI, verify its SHA-256 digest, attach it, remove its internal upload-state file, and publish the GitHub Release.
+
+Before the first tagged submission, configure these values in the repository's **Settings → Secrets and variables → Actions**:
+
+- Secrets `AMO_API_KEY` and `AMO_API_SECRET`, generated in the [AMO Developer Hub](https://addons.mozilla.org/developers/).
+- Repository variable `AMO_LICENSE`, using the exact AMO slug for the license you have chosen. The workflow does not select a license for you. Accepted extension license slugs are `all-rights-reserved`, `MPL-2.0`, `Apache-2.0`, `GPL-2.0-only`, `GPL-3.0-only`, `LGPL-2.1-only`, `LGPL-3.0-only`, `AGPL-3.0-only`, `MIT`, `ISC`, `BSD-2-Clause`, and `Unlicense`.
+
+The initial AMO listing uses the checked-in English summary and `other` category from `.amo-metadata.json`; AMO may request changes during its first review. Later versions inherit that listing and its chosen license. If an AMO submission is interrupted after its draft marker is created, automation stops rather than risk submitting the same version twice; inspect both the AMO Developer Hub and the draft before resolving that state.
+
+The workflow does not create a version tag, submit `0.1.0`, or automatically bump the manifest version. After changing `manifest.json` to a new version and pushing the matching `v<version>` tag, the AMO submission workflow starts.
 
 ## Use
 
@@ -49,7 +73,7 @@ The manifest requests:
 - `https://store.epicgames.com/*`: reads visible Epic Store pages and interacts with visible giveaway controls.
 - `https://www.fab.com/*`: reads visible Fab pages and interacts with visible free asset controls.
 
-The extension does not request broad access to all websites. The host permissions are limited to these two storefront hosts.
+The extension does not request broad access to all websites. The host permissions are limited to these two storefront hosts. Firefox's data collection declaration is `none`; settings and run history stay in local extension storage.
 
 ## States and limitations
 

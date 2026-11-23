@@ -5,7 +5,10 @@
   "description": "Claim free PC game offers on Epic and free assets on Fab from their storefront pages.",
   "browser_specific_settings": {
     "gecko": {
-      "id": "{41f50f5e-77ac-47ec-8c28-3d16a00fa80e}"
+      "id": "{41f50f5e-77ac-47ec-8c28-3d16a00fa80e}",
+      "data_collection_permissions": {
+        "required": ["none"]
+      }
     }
   },
   "permissions": [

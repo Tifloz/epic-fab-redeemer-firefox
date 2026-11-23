@@ -1,0 +1,16 @@
+{
+  "name": "epic-fab-redeemer-firefox",
+  "private": true,
+  "type": "module",
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "test": "node --test",
+    "lint": "web-ext lint --source-dir .",
+    "build": "web-ext build --source-dir . --artifacts-dir dist --overwrite-dest"
+  },
+  "devDependencies": {
+    "web-ext": "10.8.0"
+  }
+}

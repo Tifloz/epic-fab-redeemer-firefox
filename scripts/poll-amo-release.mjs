@@ -60,7 +60,7 @@ export async function pollDraftRelease({
   const sha256 = normalizeSha256(file?.hash);
   assertPublishableAmoVersion({
     tag: release.tag_name,
-    manifestVersion: manifest.version,
+    manifestVersion: version,
     version: amoVersion.version,
     fileStatus: file?.status,
     fileUrl: file?.url,

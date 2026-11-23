@@ -201,3 +201,15 @@ test('checks an older draft against its own tag after the manifest has advanced'
   assert.deepEqual(await older.run(), { status: 'pending', tag: 'v0.1.1' });
   assert.equal(older.events.some((event) => event[0] === 'amo-version' && event[2] === '0.1.1'), true);
 });
+
+test('publishes an approved older draft after the manifest has advanced', async () => {
+  const older = createHarness({
+    manifestVersion: '0.1.2',
+    tag: 'v0.1.1',
+    version: '0.1.1',
+    uploadVersion: '0.1.1',
+  });
+
+  assert.deepEqual(await older.run(), { status: 'published', tag: 'v0.1.1' });
+  assert.equal(older.events.some(([event]) => event === 'update-release'), true);
+});

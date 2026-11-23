@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.3
+
+- Recognize French limited-time Fab offers and their visible promotional prices.
+- Open Fab offers without mistaking footer links for a license prompt.
+- Explain when a Fab offer requires the user to complete checkout.
+
 ## 0.1.0
 
 - Initial Firefox desktop implementation for Epic free PC giveaways and Fab free assets.

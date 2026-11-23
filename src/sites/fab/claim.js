@@ -13,6 +13,7 @@
     "ajouter a ma bibliotheque",
     "ajouter a votre bibliotheque"
   ]);
+  const CHECKOUT_LABELS = new Set(["buy now", "add to cart", "acheter maintenant", "ajouter au panier"]);
   const LICENSE_LABELS = {
     personal: /^(?:personal(?:\s+license)?|licence\s+personnelle|license\s+personnelle)$/,
     professional: /^(?:professional(?:\s+license)?|licence\s+professionnelle|license\s+professionnelle)$/
@@ -101,7 +102,11 @@
     if (BLOCKING_COPY.captcha.test(text) || visibleElements(document, "iframe[src]").some((frame) => /captcha|challenge/i.test(frame.src))) {
       return { state: "needs-user-action", detail: "Complete Fab's CAPTCHA in the page, then resume." };
     }
-    if (BLOCKING_COPY.eula.test(dialogText) || (!dialogText && BLOCKING_COPY.eula.test(pageText))) {
+    const inlineLicensePrompt = !dialogText && BLOCKING_COPY.eula.test(pageText) &&
+      visibleElements(document, "button, [role='button'], label").some((control) =>
+        /^(?:i\s+agree|i\s+accept|j['’]accepte|accepter\s+(?:le\s+contrat|les\s+conditions))\b/.test(controlLabel(control))
+      );
+    if (BLOCKING_COPY.eula.test(dialogText) || inlineLicensePrompt) {
       return { state: "needs-user-action", detail: "Review and accept Fab's license terms yourself, then resume." };
     }
     if (
@@ -341,11 +346,15 @@
 
     const buttons = addLibraryButtons(surface);
     if (buttons.length !== 1) {
+      const hasCheckout = buttons.length === 0 && visibleElements(surface, "button, a[href], [role='button']")
+        .some((control) => CHECKOUT_LABELS.has(controlLabel(control)));
       return {
         state: "needs-user-action",
-        detail: buttons.length === 0
-          ? "No unique Add to Library control was found. Review the page and continue manually."
-          : "Fab shows multiple Add to Library controls. Choose the correct one manually."
+        detail: hasCheckout
+          ? "Fab uses checkout for this offer. Verify the license and zero total, complete the order, then resume."
+          : buttons.length === 0
+            ? "No unique Add to Library control was found. Review the page and continue manually."
+            : "Fab shows multiple Add to Library controls. Choose the correct one manually."
       };
     }
 

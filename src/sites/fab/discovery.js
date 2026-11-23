@@ -7,7 +7,8 @@
 
   const LIMITED_TIME_LABELS = [
     /limited[- ]time\s+free/i,
-    /offres?\s+gratuites?\s+a\s+duree\s+limitee/i
+    /offres?\s+gratuites?\s+a\s+duree\s+limitee/i,
+    /^gratuit\s+pour\s+une\s+duree\s+limitee\b/i
   ];
   const OWNED_LABELS = [
     /^owned$/i,
@@ -111,9 +112,9 @@
       if (!isVisible(node)) continue;
       const text = normalize(textOf(node));
       if (!text || text.length > 80) continue;
-      if (/^(?:from\s+free|à\s+partir\s+de\s+gratuit(?:e)?)$/.test(text)) {
+      if (/^(?:from\s+free|a\s+partir\s+de\s+gratuit(?:e)?)$/.test(text)) {
         labels.add("from-free");
-      } else if (/^(?:free\*?|gratuit(?:e)?)$/.test(text)) {
+      } else if (/^(?:free|gratuit(?:e)?)\s*\*?$/.test(text)) {
         labels.add("free");
       } else if (/^(?:(?:us\$|\$|€|£|¥|usd\s*|eur\s*|gbp\s*)?0(?:[.,]00)?\s*(?:usd|eur|gbp)?)$/.test(text)) {
         labels.add("free");
@@ -162,6 +163,22 @@
     return future[0] || null;
   }
 
+  function parseLimitedTimeHeading(text, now = new Date()) {
+    const match = normalize(text).match(/\((\d{1,2})\/(\d{1,2})\s+a\s+(\d{1,2})h(\d{2})\s+(cet|cest)\)$/);
+    if (!match) return null;
+    const [, dayText, monthText, hourText, minuteText, zone] = match;
+    const [day, month, hour, minute] = [dayText, monthText, hourText, minuteText].map(Number);
+    const offset = zone === "cest" ? 2 : 1;
+    const localNow = new Date(now.getTime() + offset * 3600000);
+    const currentMonth = localNow.getUTCMonth() + 1;
+    const year = localNow.getUTCFullYear() + Number(currentMonth === 12 && month === 1);
+    const wallTime = new Date(Date.UTC(year, month - 1, day, hour, minute));
+    if (wallTime.getUTCMonth() !== month - 1 || wallTime.getUTCDate() !== day ||
+        wallTime.getUTCHours() !== hour || wallTime.getUTCMinutes() !== minute) return null;
+    const deadline = wallTime.getTime() - offset * 3600000;
+    return deadline > now.getTime() ? deadline : null;
+  }
+
   function limitedTimeSection(document) {
     const headings = [...document.querySelectorAll("h1, h2, h3, h4, [role='heading']")]
       .filter((heading) => isVisible(heading) && LIMITED_TIME_LABELS.some((pattern) => pattern.test(normalize(textOf(heading)))));
@@ -185,7 +202,7 @@
         .filter(Number.isFinite)
         .find((value) => value > Date.now());
       const textExpiry = parseVisibleUntil(textOf(section));
-      if (machineExpiry || textExpiry) return section;
+      if (machineExpiry || textExpiry || parseLimitedTimeHeading(textOf(heading))) return section;
     }
     return null;
   }
@@ -206,7 +223,8 @@
       if (links.length !== 1) continue;
       const hasHeading = Boolean(node.querySelector("h2, h3, h4, h5, [role='heading']"));
       const semanticCard = node.matches("article, li, [role='listitem'], [data-testid*='card' i], [data-testid*='listing' i]");
-      if ((semanticCard || hasHeading) && exactPriceKind(node)) return node;
+      const hasTitleLink = Boolean(textOf(anchor) && anchor.getAttribute("aria-label"));
+      if ((semanticCard || hasHeading || hasTitleLink) && exactPriceKind(node)) return node;
     }
     return null;
   }
@@ -224,9 +242,9 @@
     const heading = card.querySelector("h2, h3, h4, h5, [role='heading']");
     const values = [
       heading && textOf(heading),
+      textOf(anchor),
       anchor.getAttribute("aria-label"),
       anchor.getAttribute("title"),
-      textOf(anchor),
       ...[...card.querySelectorAll("img[alt]")].map((image) => image.alt)
     ];
     for (const value of values) {
@@ -300,6 +318,7 @@
     isProductRoute,
     exactPriceKind,
     parseVisibleUntil,
+    parseLimitedTimeHeading,
     visibleOwned,
     productSurface
   });

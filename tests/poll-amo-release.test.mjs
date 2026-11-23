@@ -85,12 +85,19 @@ test('leaves unreviewed versions as drafts without GitHub mutations', async () =
   assert.equal(harness.events.some((event) => ['upload-asset', 'delete-asset', 'update-release'].includes(event[0])), false);
 });
 
-test('fails without publication when AMO marks an upload invalid or disabled', async () => {
-  for (const options of [{ uploadValid: false }, { uploadValid: false, uploadSubmitted: false }, { fileStatus: 'disabled' }]) {
+test('fails without publication when AMO marks an upload invalid', async () => {
+  for (const options of [{ uploadValid: false }, { uploadValid: false, uploadSubmitted: false }]) {
     const harness = createHarness(options);
     await assert.rejects(harness.run());
     assert.equal(harness.events.some((event) => event[0] === 'update-release'), false);
   }
+});
+
+test('reports disabled versions and leaves their draft assets untouched', async () => {
+  const disabled = createHarness({ fileStatus: 'disabled' });
+
+  assert.deepEqual(await disabled.run(), { status: 'disabled', tag: 'v0.1.0' });
+  assert.equal(disabled.events.some(([event]) => ['upload-asset', 'delete-asset', 'update-release'].includes(event)), false);
 });
 
 test('rejects tag and AMO version mismatches before publishing', async () => {

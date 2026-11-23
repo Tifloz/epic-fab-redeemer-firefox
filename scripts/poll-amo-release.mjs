@@ -56,6 +56,7 @@ export async function pollDraftRelease({
     throw new Error(`AMO version is not a listed submission for ${release.tag_name}.`);
   }
   if (file?.status === 'unreviewed') return { status: 'pending', tag: release.tag_name };
+  if (file?.status === 'disabled') return { status: 'disabled', tag: release.tag_name };
 
   const sha256 = normalizeSha256(file?.hash);
   assertPublishableAmoVersion({

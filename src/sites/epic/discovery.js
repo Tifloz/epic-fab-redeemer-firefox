@@ -5,13 +5,6 @@
   api.sites = api.sites || {};
   api.sites.epic = api.sites.epic || {};
 
-  const GIVEAWAY_MARKERS = [
-    /\bfree\s+(?:game\s+)?giveaway\b/i,
-    /\bgame\s+giveaway\b/i,
-    /\bjeu(?:x)?\s+offert(?:s)?\b/i,
-    /\boffre\s+gratuite\b/i,
-    /\bcadeaux?\b/i
-  ];
   const CURRENT_NOW_MARKERS = [
     /\bfree\s+now\b/i,
     /\bclaim\s+(?:it\s+)?free\s+now\b/i,
@@ -43,6 +36,13 @@
     /\bdémo(?:s)?\b/i,
     /\bversion\s+d['’]essai\b/i
   ];
+  const MOBILE_OFFER_MARKERS = [
+    /\bavailable on mobile\b/i,
+    /\bdisponible sur mobile\b/i,
+    /\binstaller l['’](?:appli|application) mobile\b/i,
+    /\binstall the mobile app\b/i,
+    /\bavailable on android and (?:iphone|ipad)\b/i
+  ];
   const OWNED_MARKERS = [
     /^owned$/i,
     /^in\s+(?:your\s+)?library$/i,
@@ -51,16 +51,6 @@
     /^dans\s+(?:votre\s+)?bibliotheque$/i,
     /^deja\s+dans\s+(?:votre\s+)?bibliotheque$/i
   ];
-  const CLAIM_ACTIONS = new Set([
-    "get",
-    "get it",
-    "get now",
-    "claim",
-    "claim now",
-    "obtenir",
-    "recuperer",
-    "recuperer maintenant"
-  ]);
   const FRENCH_MONTHS = new Map([
     ["janvier", 0], ["janv", 0],
     ["fevrier", 1], ["fevr", 1],
@@ -131,49 +121,6 @@
     }
   }
 
-  function isGiveawayPageMarker(element) {
-    const text = elementText(element);
-    if (!text || text.length > 100) return false;
-    const directLabel = normalizeText(
-      element.getAttribute("aria-label") || element.getAttribute("title") || text
-    );
-    return matchesAny(directLabel, GIVEAWAY_MARKERS);
-  }
-
-  function giveawaySections(document) {
-    const results = new Set();
-    const markers = document.querySelectorAll(
-      "h1, h2, h3, h4, h5, h6, [role='heading'], [aria-label], [data-testid]"
-    );
-
-    for (const marker of markers) {
-      if (!isVisible(marker) || !isGiveawayPageMarker(marker)) continue;
-      const link = marker.closest("a[href]");
-      if (link && !isEpicProductUrl(link.href)) {
-        // Epic also links a mobile-store promotion using the words “Free Giveaway”.
-        continue;
-      }
-
-      let section = marker.closest("section, [role='region']");
-      if (!section) {
-        let ancestor = marker.parentElement;
-        for (let depth = 0; ancestor && depth < 5; depth += 1, ancestor = ancestor.parentElement) {
-          const productLinks = [...ancestor.querySelectorAll("a[href]")]
-            .filter((anchor) => canonicalProductUrl(anchor.href));
-          if (productLinks.length > 0 && productLinks.length <= 8) {
-            section = ancestor;
-            break;
-          }
-        }
-      }
-      if (section && section !== document.body && section !== document.documentElement) {
-        results.add(section);
-      }
-    }
-
-    return [...results];
-  }
-
   function uniqueProductLinks(root) {
     const byUrl = new Map();
     for (const anchor of root.querySelectorAll("a[href]")) {
@@ -181,18 +128,6 @@
       if (url && !byUrl.has(url)) byUrl.set(url, anchor);
     }
     return [...byUrl.values()];
-  }
-
-  function hasVisibleClaimAction(card) {
-    const controls = card.querySelectorAll("button, a[href], [role='button']");
-    for (const control of controls) {
-      if (!isVisible(control)) continue;
-      const label = normalizeText(
-        control.getAttribute("aria-label") || control.getAttribute("title") || elementText(control)
-      );
-      if (CLAIM_ACTIONS.has(label)) return true;
-    }
-    return false;
   }
 
   function parseFrenchDeadline(text) {
@@ -245,9 +180,10 @@
       if (products.length !== 1) continue;
       const text = elementText(ancestor);
       if (!text || text.length > 1200) continue;
+      const hasOfferWindow = matchesAny(text, CURRENT_NOW_MARKERS) || matchesAny(text, FREE_UNTIL_MARKERS);
       if (
         ancestor.matches("article, li, [role='listitem'], [data-testid*='card' i], [data-testid*='offer' i]") ||
-        (hasVisibleClaimAction(ancestor) && ancestor.querySelector("img[alt], h1, h2, h3, h4, [role='heading']"))
+        hasOfferWindow
       ) {
         return ancestor;
       }
@@ -282,23 +218,24 @@
     ];
     for (const value of values) {
       const title = String(value || "").replace(/\s+/g, " ").trim();
-      if (title && title.length <= 300 && !matchesAny(title, GIVEAWAY_MARKERS)) return title;
+      if (title && title.length <= 300) return title;
     }
     return null;
   }
 
-  function isEpicGiveawayCard(card, section = null) {
+  function isEpicGiveawayCard(card) {
     if (!isVisible(card)) return false;
-    const context = section || card;
-    const contextText = elementText(context);
-    if (!matchesAny(normalizeText(contextText), GIVEAWAY_MARKERS)) return false;
 
     const text = elementText(card);
-    if (!text || matchesAny(text, UPCOMING_MARKERS) || matchesAny(text, EXCLUDED_MARKERS)) {
+    if (
+      !text ||
+      matchesAny(text, UPCOMING_MARKERS) ||
+      matchesAny(text, EXCLUDED_MARKERS) ||
+      matchesAny(text, MOBILE_OFFER_MARKERS)
+    ) {
       return false;
     }
     if (!hasCurrentGiveawayMarker(card)) return false;
-    if (!hasVisibleClaimAction(card) && !hasOwnedEvidence(card)) return false;
     return uniqueProductLinks(card).length === 1;
   }
 
@@ -324,24 +261,22 @@
     if (!canRunEpic(document, location) || !isFreeGamesRoute(location)) return [];
 
     const discovered = new Map();
-    for (const section of giveawaySections(document)) {
-      for (const anchor of uniqueProductLinks(section)) {
-        const card = findCardRoot(anchor, section);
-        if (!card || !isEpicGiveawayCard(card, section)) continue;
+    for (const anchor of uniqueProductLinks(document)) {
+      const card = findCardRoot(anchor, document);
+      if (!card || !isEpicGiveawayCard(card)) continue;
 
-        const url = canonicalProductUrl(anchor.href);
-        const title = cardTitle(card, anchor);
-        if (!url || !title) continue;
+      const url = canonicalProductUrl(anchor.href);
+      const title = cardTitle(card, anchor);
+      if (!url || !title) continue;
 
-        const eligible = hasCurrentGiveawayMarker(card);
-        discovered.set(url, {
-          key: url,
-          title,
-          url,
-          eligible,
-          owned: hasOwnedEvidence(card)
-        });
-      }
+      const eligible = hasCurrentGiveawayMarker(card);
+      discovered.set(url, {
+        key: url,
+        title,
+        url,
+        eligible,
+        owned: hasOwnedEvidence(card)
+      });
     }
     return [...discovered.values()];
   }

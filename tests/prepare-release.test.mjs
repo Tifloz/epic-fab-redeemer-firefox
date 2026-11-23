@@ -19,7 +19,7 @@ const manifest = {
   host_permissions: ['https://store.epicgames.com/*', 'https://www.fab.com/*'],
 };
 
-function createHarness({ state = null, releaseExists = false, releaseDraft = true, existingAddon = false, execFailure = null } = {}) {
+function createHarness({ state = null, releaseExists = false, releaseDraft = true, existingAddon = false, execFailure = null, amoVersion = null } = {}) {
   const release = { id: 12, tag_name: 'v0.1.0', draft: releaseDraft, upload_url: 'https://uploads.github.com/test' };
   const events = [];
   const assets = state ? [{ id: 55, name: 'amo-upload-state.json' }] : [];
@@ -52,6 +52,7 @@ function createHarness({ state = null, releaseExists = false, releaseDraft = tru
     },
   };
   const amoClient = {
+    async getVersion() { return amoVersion; },
     async getAddon(addonId) {
       events.push(['get-addon', addonId]);
       return existingAddon ? { guid: addonId } : null;
@@ -193,4 +194,23 @@ test('refuses to update a published release for the same tag', async () => {
 
   await assert.rejects(harness.run(), /must remain a draft/);
   assert.equal(harness.signCalls, 0);
+});
+
+test('recognizes a listed version accepted by Mozilla before the local submission failed', async () => {
+  const harness = createHarness({
+    execFailure: new Error('web-ext failed after submission'),
+    amoVersion: { version: '0.1.0', channel: 'listed', file: { status: 'unreviewed' } },
+  });
+
+  assert.deepEqual(await harness.run(), { releaseId: 12, tag: 'v0.1.0', uploadUuid: null, resumed: true });
+  assert.equal(harness.signCalls, 1);
+  assert.equal(harness.events.some(([event]) => event === 'delete-state'), false);
+});
+
+test('does not treat a missing or disabled version as a recovered submission', async () => {
+  for (const amoVersion of [null, { version: '0.1.0', channel: 'listed', file: { status: 'disabled' } }]) {
+    const harness = createHarness({ execFailure: new Error('web-ext failed'), amoVersion });
+    await assert.rejects(harness.run(), /did not complete/);
+    assert.equal(harness.signCalls, 1);
+  }
 });

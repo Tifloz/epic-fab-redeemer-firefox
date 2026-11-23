@@ -36,6 +36,7 @@ export async function prepareRelease({
   requireFunction(githubApi?.downloadAsset, 'githubApi.downloadAsset');
   requireFunction(githubApi?.deleteAsset, 'githubApi.deleteAsset');
   requireFunction(amoClient?.getAddon, 'amoClient.getAddon');
+  requireFunction(amoClient?.getVersion, 'amoClient.getVersion');
 
   const tag = requiredString(env.GITHUB_REF_NAME, 'GITHUB_REF_NAME');
   const apiKey = requiredString(env.AMO_API_KEY, 'AMO_API_KEY');
@@ -44,6 +45,7 @@ export async function prepareRelease({
   requiredString(env.GITHUB_REPOSITORY, 'GITHUB_REPOSITORY');
   const manifest = JSON.parse((await readFile('manifest.json')).toString('utf8'));
   validateManifest(manifest);
+  const addonId = manifest.browser_specific_settings.gecko.id;
   const version = versionFromTag(tag, manifest.version);
   const sourceZipName = `epic-fab-redeemer-v${version}.zip`;
   const sourceZip = await readFile(`dist/${sourceZipName}`);
@@ -65,8 +67,11 @@ export async function prepareRelease({
       throw new Error(`Draft ${tag} has no AMO state asset; refusing to submit again.`);
     }
     state = parseState(await githubApi.downloadAsset(stateAsset));
-    validateState(state, tag, manifest.browser_specific_settings.gecko.id);
+    validateState(state, tag, addonId);
     if (state.status === 'submitting') {
+      if (assets.some((asset) => asset.name === sourceZipName) && await hasAcceptedAmoVersion(amoClient, addonId, version)) {
+        return { releaseId: release.id, tag, uploadUuid: null, resumed: true };
+      }
       throw new Error(`Draft ${tag} has an interrupted submission; manual AMO reconciliation is required.`);
     }
 
@@ -76,7 +81,7 @@ export async function prepareRelease({
     return { releaseId: release.id, tag, uploadUuid: state.uploadUuid, resumed: true };
   }
 
-  const listing = await amoClient.getAddon(manifest.browser_specific_settings.gecko.id);
+  const listing = await amoClient.getAddon(addonId);
   let metadataPath;
   if (!listing) {
     const license = validateAmoLicense(env.AMO_LICENSE);
@@ -100,7 +105,7 @@ export async function prepareRelease({
       tag,
       status: 'submitting',
       uploadUuid: null,
-      addonId: manifest.browser_specific_settings.gecko.id,
+      addonId,
     };
     stateAsset = await githubApi.uploadAsset(
       release,
@@ -146,7 +151,10 @@ export async function prepareRelease({
     }
 
     const submittedState = { ...state, status: 'submitted', uploadUuid };
-    if (stateAsset?.id) await githubApi.deleteAsset(stateAsset.id);
+    if (stateAsset?.id) {
+      await githubApi.deleteAsset(stateAsset.id);
+      stateAsset = null;
+    }
     await githubApi.uploadAsset(
       release,
       STATE_ASSET_NAME,
@@ -155,8 +163,17 @@ export async function prepareRelease({
     );
     return { releaseId: release.id, tag, uploadUuid, resumed: false };
   } catch {
+    if (stateAsset?.id && await hasAcceptedAmoVersion(amoClient, addonId, version)) {
+      return { releaseId: release.id, tag, uploadUuid: null, resumed: true };
+    }
     throw new Error(`AMO release submission did not complete. Draft ${tag} was preserved; inspect it and reconcile with AMO before retrying.`);
   }
+}
+
+async function hasAcceptedAmoVersion(client, addonId, version) {
+  const record = await client.getVersion(addonId, version).catch(() => null);
+  return record?.version === version && record.channel === 'listed' &&
+    ['unreviewed', 'public'].includes(record.file?.status);
 }
 
 function validateAmoMetadata(metadata) {

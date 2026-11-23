@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "Epic Fab Redeemer",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Claim free PC game offers on Epic and free assets on Fab from their storefront pages.",
   "browser_specific_settings": {
     "gecko": {

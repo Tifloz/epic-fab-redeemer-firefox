@@ -1,0 +1,205 @@
+:host {
+  all: initial;
+  --efar-bg: #111820;
+  --efar-card: #17212b;
+  --efar-line: rgba(255, 255, 255, 0.1);
+  --efar-text: #f3f7fb;
+  --efar-muted: #9cabb9;
+  --efar-accent: #93c5fd;
+  --efar-success: #86efac;
+  --efar-danger: #fca5a5;
+  --efar-warn: #fcd34d;
+  color: var(--efar-text);
+  font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  font-size: 13px;
+  line-height: 1.4;
+  position: fixed;
+  right: 20px;
+  bottom: 20px;
+  z-index: 2147483646;
+}
+
+.panel {
+  background: var(--efar-bg);
+  border: 1px solid var(--efar-line);
+  border-radius: 16px;
+  box-shadow: 0 16px 48px rgba(0, 0, 0, 0.35);
+  box-sizing: border-box;
+  display: grid;
+  gap: 12px;
+  max-height: min(72vh, 640px);
+  overflow: hidden;
+  padding: 16px;
+  width: min(360px, calc(100vw - 32px));
+}
+
+.header,
+.section-heading,
+.actions,
+.item {
+  align-items: center;
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.title-block,
+.item-copy {
+  display: grid;
+  min-width: 0;
+}
+
+.eyebrow {
+  color: var(--efar-accent);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  margin: 0 0 2px;
+}
+
+.title {
+  color: var(--efar-text);
+  font-size: 16px;
+  line-height: 1.2;
+  margin: 0;
+}
+
+.state-pill,
+.item-state {
+  border: 1px solid var(--efar-line);
+  border-radius: 999px;
+  color: var(--efar-muted);
+  font-size: 10px;
+  font-weight: 700;
+  padding: 4px 8px;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.live-status {
+  color: var(--efar-muted);
+  margin: 0;
+}
+
+.summary {
+  display: grid;
+  gap: 6px;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+
+.count {
+  background: var(--efar-card);
+  border: 1px solid var(--efar-line);
+  border-radius: 10px;
+  display: grid;
+  gap: 2px;
+  padding: 8px 6px;
+  text-align: center;
+}
+
+.count-value {
+  color: var(--efar-text);
+  font-size: 15px;
+}
+
+.count-label {
+  color: var(--efar-muted);
+  font-size: 9px;
+}
+
+.items {
+  display: grid;
+  gap: 6px;
+  list-style: none;
+  margin: 0;
+  max-height: 260px;
+  overflow: auto;
+  padding: 0 2px 0 0;
+}
+
+.item {
+  background: var(--efar-card);
+  border: 1px solid var(--efar-line);
+  border-radius: 9px;
+  padding: 8px;
+}
+
+.item-copy {
+  gap: 2px;
+}
+
+.item-title {
+  color: var(--efar-text);
+  font-size: 12px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.item-detail {
+  color: var(--efar-muted);
+  font-size: 10px;
+}
+
+.state-claimed {
+  color: var(--efar-success);
+}
+
+.state-failed {
+  color: var(--efar-danger);
+}
+
+.state-needs-user-action,
+.state-pending {
+  color: var(--efar-warn);
+}
+
+.empty,
+.overflow,
+.footer {
+  color: var(--efar-muted);
+  font-size: 11px;
+  margin: 0;
+}
+
+.actions {
+  justify-content: flex-start;
+}
+
+.button {
+  border: 1px solid transparent;
+  border-radius: 9px;
+  cursor: pointer;
+  font: inherit;
+  font-weight: 700;
+  min-height: 36px;
+  padding: 0 13px;
+}
+
+.button-primary {
+  background: var(--efar-accent);
+  color: #0b1724;
+}
+
+.button-secondary {
+  background: transparent;
+  border-color: var(--efar-line);
+  color: var(--efar-text);
+}
+
+.button:disabled {
+  cursor: not-allowed;
+  opacity: 0.5;
+}
+
+.button:focus-visible {
+  outline: 3px solid #fff;
+  outline-offset: 2px;
+}
+
+@media (max-width: 520px) {
+  :host {
+    bottom: 12px;
+    right: 12px;
+  }
+}

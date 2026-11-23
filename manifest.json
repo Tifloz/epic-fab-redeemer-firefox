@@ -1,0 +1,65 @@
+{
+  "manifest_version": 3,
+  "name": "Epic Fab Redeemer",
+  "version": "0.1.0",
+  "description": "Claim free PC game offers on Epic and free assets on Fab from their storefront pages.",
+  "browser_specific_settings": {
+    "gecko": {
+      "id": "{41f50f5e-77ac-47ec-8c28-3d16a00fa80e}"
+    }
+  },
+  "permissions": [
+    "storage"
+  ],
+  "host_permissions": [
+    "https://store.epicgames.com/*",
+    "https://www.fab.com/*"
+  ],
+  "background": {
+    "scripts": [
+      "src/shared/config.js",
+      "src/shared/messages.js",
+      "src/background/background.js"
+    ]
+  },
+  "action": {
+    "default_title": "Epic Fab Redeemer",
+    "default_popup": "src/ui/popup/popup.html"
+  },
+  "options_ui": {
+    "page": "src/ui/options/options.html",
+    "open_in_tab": true
+  },
+  "content_scripts": [
+    {
+      "matches": ["https://store.epicgames.com/*"],
+      "js": [
+        "src/shared/messages.js",
+        "src/shared/runner.js",
+        "src/ui/content/panel.js",
+        "src/sites/epic/discovery.js",
+        "src/sites/epic/claim.js",
+        "src/sites/epic/content.js"
+      ],
+      "run_at": "document_idle"
+    },
+    {
+      "matches": ["https://www.fab.com/*"],
+      "js": [
+        "src/shared/messages.js",
+        "src/shared/runner.js",
+        "src/ui/content/panel.js",
+        "src/sites/fab/discovery.js",
+        "src/sites/fab/claim.js",
+        "src/sites/fab/content.js"
+      ],
+      "run_at": "document_idle"
+    }
+  ],
+  "web_accessible_resources": [
+    {
+      "resources": ["src/ui/content/panel.css"],
+      "matches": ["https://store.epicgames.com/*", "https://www.fab.com/*"]
+    }
+  ]
+}

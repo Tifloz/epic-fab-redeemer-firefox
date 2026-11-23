@@ -1,0 +1,45 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Epic Fab Redeemer</title>
+    <link rel="stylesheet" href="popup.css">
+    <script src="popup.js" defer></script>
+  </head>
+  <body>
+    <main class="popup" aria-labelledby="popup-title">
+      <header class="header">
+        <div class="brand-mark" aria-hidden="true">EF</div>
+        <div>
+          <h1 id="popup-title">Epic Fab Redeemer</h1>
+          <p class="subtitle">Free games and assets</p>
+        </div>
+      </header>
+
+      <section class="status-card" aria-live="polite">
+        <span class="eyebrow">CURRENT TAB</span>
+        <p id="site-status">Checking this page…</p>
+      </section>
+
+      <section class="run-card" aria-labelledby="run-title">
+        <div class="section-heading">
+          <h2 id="run-title">Latest run</h2>
+          <span id="run-state" class="state-pill">No run yet</span>
+        </div>
+        <p id="run-summary" class="run-summary">Results will appear here.</p>
+      </section>
+
+      <div class="actions" aria-label="Run controls">
+        <button id="start-button" class="button button-primary" type="button" disabled>Start</button>
+        <button id="resume-button" class="button button-secondary" type="button" disabled>Resume</button>
+        <button id="stop-button" class="button button-secondary" type="button" disabled>Stop</button>
+      </div>
+
+      <footer class="footer">
+        <a href="../options/options.html" target="_blank" rel="noopener">Settings</a>
+        <span class="footer-note">Firefox add-on</span>
+      </footer>
+    </main>
+  </body>
+</html>

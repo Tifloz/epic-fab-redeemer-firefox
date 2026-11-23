@@ -1,0 +1,62 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Epic Fab Redeemer Settings</title>
+    <link rel="stylesheet" href="options.css">
+    <script src="options.js" defer></script>
+  </head>
+  <body>
+    <main class="settings-page">
+      <header class="page-header">
+        <p class="eyebrow">EPIC FAB REDEEMER</p>
+        <h1>Settings</h1>
+        <p class="intro">Choose how the add-on handles free claims on supported pages.</p>
+      </header>
+
+      <form id="settings-form">
+        <section class="settings-card" aria-labelledby="behavior-heading">
+          <h2 id="behavior-heading">Claim behavior</h2>
+          <label class="toggle-row" for="auto-start">
+            <span>
+              <strong>Auto-start on supported pages</strong>
+              <small>Begin scanning when an Epic or Fab page opens.</small>
+            </span>
+            <input id="auto-start" name="autoStart" type="checkbox">
+          </label>
+
+          <label class="field" for="delay-ms">
+            <span>
+              <strong>Delay between actions</strong>
+              <small>Wait between claim attempts to avoid rapid requests.</small>
+            </span>
+            <span class="input-with-unit">
+              <input id="delay-ms" name="delayMs" type="number" min="500" max="10000" step="100" value="2000">
+              <span>ms</span>
+            </span>
+          </label>
+        </section>
+
+        <section class="settings-card" aria-labelledby="fab-heading">
+          <h2 id="fab-heading">Fab license</h2>
+          <label class="field" for="fab-license">
+            <span>
+              <strong>Preferred license</strong>
+              <small>Used only when Fab shows a matching license option.</small>
+            </span>
+            <select id="fab-license" name="fabLicense">
+              <option value="professional">Professional</option>
+              <option value="personal">Personal</option>
+            </select>
+          </label>
+        </section>
+
+        <div class="form-footer">
+          <p id="save-status" role="status" aria-live="polite"></p>
+          <button class="save-button" type="submit">Save settings</button>
+        </div>
+      </form>
+    </main>
+  </body>
+</html>
